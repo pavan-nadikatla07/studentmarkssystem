@@ -1,0 +1,244 @@
+{
+  "info": {
+    "_postman_id": "exam-portal-mern-2025",
+    "name": "Online Examination Result Portal API",
+    "description": "Postman Collection for MERN Stack Online Examination Result Portal (Inspired by SIH 2025)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Student Registration",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Vikas Gupta\",\n  \"email\": \"vikas@student.edu\",\n  \"password\": \"student123\",\n  \"role\": \"student\",\n  \"rollNumber\": \"2024CS099\",\n  \"department\": \"Computer Science & Engineering\",\n  \"semester\": 4,\n  \"section\": \"A\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "register"]
+            }
+          }
+        },
+        {
+          "name": "Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@college.edu\",\n  \"password\": \"adminpassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "login"]
+            }
+          }
+        },
+        {
+          "name": "Student Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"rahul@student.edu\",\n  \"password\": \"student123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Current Profile (/auth/me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Students (Admin CRUD)",
+      "item": [
+        {
+          "name": "Get All Students",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/students",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "students"]
+            }
+          }
+        },
+        {
+          "name": "Create Student",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentName\": \"Siddharth Sen\",\n  \"rollNumber\": \"2024CS088\",\n  \"department\": \"Computer Science & Engineering\",\n  \"semester\": 4,\n  \"section\": \"B\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/students",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "students"]
+            }
+          }
+        },
+        {
+          "name": "Update Student",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentName\": \"Siddharth Sen (Updated)\",\n  \"section\": \"A\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/students/STU-2024-001",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "students", "STU-2024-001"]
+            }
+          }
+        },
+        {
+          "name": "Delete Student",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/STU-2024-003",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "students", "STU-2024-003"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Results (Admin CRUD & Reports)",
+      "item": [
+        {
+          "name": "Get Results (Filtered / My Results)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/results?semester=4",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "results"],
+              "query": [{ "key": "semester", "value": "4" }]
+            }
+          }
+        },
+        {
+          "name": "Add Student Result",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"STU-2024-001\",\n  \"semester\": 4,\n  \"subjectCode\": \"CS406\",\n  \"subjectName\": \"Design & Analysis of Algorithms Lab\",\n  \"marks\": 94\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/results",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "results"]
+            }
+          }
+        },
+        {
+          "name": "Update Result Marks",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"marks\": 98\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/results/RES-001-4-1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "results", "RES-001-4-1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Result",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/results/RES-001-4-1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "results", "RES-001-4-1"]
+            }
+          }
+        },
+        {
+          "name": "Generate Semester Reports (MongoDB Aggregate)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/results/reports/semester",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "results", "reports", "semester"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "token", "value": "YOUR_JWT_TOKEN_HERE" }
+  ]
+}
