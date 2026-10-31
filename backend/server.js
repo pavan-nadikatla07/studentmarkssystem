@@ -50,6 +50,12 @@ app.use('/api', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/results', resultRoutes);
 
+// Direct root fallbacks so requests work whether called with /api prefix or directly
+app.use('/auth', authRoutes);
+app.use('/students', studentRoutes);
+app.use('/results', resultRoutes);
+app.use('/', authRoutes);
+
 // Fallback error handlers
 app.use(notFound);
 app.use(errorHandler);

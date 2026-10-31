@@ -2,7 +2,19 @@
  * api.js - Centralized API Service for Examination Portal
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+// Normalize API URL to strip trailing slash and ensure clean endpoints
+const getBaseApiUrl = () => {
+  let url = (import.meta.env.VITE_API_URL || '/api').trim();
+  // Strip trailing slashes
+  url = url.replace(/\/+$/, '');
+  // If user provided base origin without /api, append /api
+  if (url.startsWith('http') && !url.endsWith('/api')) {
+    url = `${url}/api`;
+  }
+  return url;
+};
+
+const API_BASE_URL = getBaseApiUrl();
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
