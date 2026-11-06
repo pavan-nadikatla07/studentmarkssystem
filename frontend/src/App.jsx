@@ -21,10 +21,17 @@ function App() {
       <Navbar />
       <main className="main-content">
         <Routes>
-          {/* Public Routes */}
+          {/* Public Authentication Routes */}
           <Route path="/" element={<Home />} />
-          <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/login/:role" element={<Login />} />
+          <Route path="/student-login" element={<Login defaultRole="student" />} />
+          <Route path="/admin-login" element={<Login defaultRole="admin" />} />
+
+          <Route path="/register" element={<Register />} />
+          <Route path="/register/:role" element={<Register />} />
+          <Route path="/student-register" element={<Register defaultRole="student" />} />
+          <Route path="/admin-register" element={<Register defaultRole="admin" />} />
 
           {/* Student Protected Routes */}
           <Route

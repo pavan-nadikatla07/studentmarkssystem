@@ -1,22 +1,34 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { UserPlus, GraduationCap, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Shield, GraduationCap, ArrowRight } from 'lucide-react';
 import Alert from '../components/Alert';
+import { StudentIllustration, AdminIllustration } from '../components/AuthIllustrations';
 
-const Register = () => {
+const Register = ({ defaultRole }) => {
   const navigate = useNavigate();
+  const { role: routeRole } = useParams();
+  const [searchParams] = useSearchParams();
   const { register } = useAuth();
+
+  // Determine current role: route param > prop > query param > default 'student'
+  const roleFromQuery = searchParams.get('role');
+  const initialRole = (routeRole || defaultRole || roleFromQuery || 'student').toLowerCase();
+  const [role, setRole] = useState(initialRole === 'admin' ? 'admin' : 'student');
+
+  useEffect(() => {
+    if (routeRole) {
+      setRole(routeRole.toLowerCase() === 'admin' ? 'admin' : 'student');
+    }
+  }, [routeRole]);
+
+  const isAdmin = role === 'admin';
 
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
-    rollNumber: '',
-    department: 'Computer Science & Engineering',
-    semester: 4,
-    section: 'A',
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -24,206 +36,195 @@ const Register = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const departments = [
-    'Computer Science & Engineering',
-    'Information Technology',
-    'Electronics & Communication',
-    'Electrical & Electronics',
-    'Mechanical Engineering',
-    'Civil Engineering',
-  ];
+  const handleRoleChange = (newRole) => {
+    setRole(newRole);
+    setError('');
+    navigate(`/register/${newRole}`, { replace: true });
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => {
-      const updated = { ...prev, [name]: value };
-      // When roll number changes, auto-generate official SVES college email
-      if (name === 'rollNumber') {
-        const cleanRoll = value.trim().toLowerCase();
-        updated.email = cleanRoll ? `${cleanRoll}@sves.org.in` : '';
-      }
-      return updated;
-    });
+    setFormData((prev) => ({ ...prev, [name]: value }));
     setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const cleanName = formData.name.trim();
+    const cleanEmail = formData.email.trim().toLowerCase();
+    const cleanPassword = formData.password.trim();
+    const cleanConfirmPassword = formData.confirmPassword.trim();
 
-    const cleanRollNumber = formData.rollNumber.trim().toUpperCase();
-    if (!cleanRollNumber) {
-      setError('Please provide a valid Student Roll Number');
+    if (!cleanName || !cleanEmail || !cleanPassword || !cleanConfirmPassword) {
+      setError('Please fill in all required fields');
       return;
     }
 
-    if (formData.password !== formData.confirmPassword) {
+    if (cleanPassword.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
+    }
+
+    if (cleanPassword !== cleanConfirmPassword) {
       setError('Passwords do not match');
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters');
       return;
     }
 
     setLoading(true);
     setError('');
 
-    // Official SVES college email: <rollNumber>@sves.org.in
-    const officialCollegeEmail = `${cleanRollNumber.toLowerCase()}@sves.org.in`;
-
     try {
-      await register({
-        name: formData.name.trim(),
-        email: officialCollegeEmail,
-        password: formData.password.trim(),
-        role: 'student',
-        rollNumber: cleanRollNumber,
-        department: formData.department,
-        semester: Number(formData.semester),
-        section: formData.section.trim().toUpperCase(),
-      });
+      if (isAdmin) {
+        // Admin registration
+        await register({
+          name: cleanName,
+          email: cleanEmail,
+          password: cleanPassword,
+          role: 'admin',
+        });
+        navigate('/admin-dashboard');
+      } else {
+        // Student registration - ensure rollNumber is derived from email or input
+        const emailPrefix = cleanEmail.includes('@')
+          ? cleanEmail.split('@')[0].toUpperCase().replace(/[^A-Z0-9]/g, '')
+          : cleanEmail.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
-      navigate('/student-dashboard');
+        const derivedRoll = emailPrefix.length >= 3
+          ? emailPrefix
+          : `STU${Date.now().toString().slice(-6)}`;
+
+        await register({
+          name: cleanName,
+          email: cleanEmail,
+          password: cleanPassword,
+          role: 'student',
+          rollNumber: derivedRoll,
+          department: 'Computer Science & Engineering',
+          semester: 1,
+          section: 'A',
+        });
+        navigate('/student-dashboard');
+      }
     } catch (err) {
-      setError(err.message || 'Registration failed. Please try again.');
+      setError(err.message || 'Registration failed. Please check your details and try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: '600px', margin: '1rem auto' }}>
-      <div className="card" style={{ padding: '2.5rem 2rem' }}>
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div
-            style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '50%',
-              background: 'var(--color-primary-light)',
-              color: 'var(--color-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 1rem',
-            }}
-          >
-            <UserPlus size={28} />
+    <div className={`auth-page-wrapper ${isAdmin ? 'admin-theme' : 'student-theme'}`}>
+      <div className="auth-card-container">
+        {/* Left Side: Role Illustration Panel */}
+        <div className={`auth-illustration-side ${isAdmin ? 'admin-bg' : 'student-bg'}`}>
+          <div className="auth-illustration-content">
+            <div className="auth-role-tag">
+              {isAdmin ? (
+                <>
+                  <Shield size={16} />
+                  <span>Admin Registration</span>
+                </>
+              ) : (
+                <>
+                  <GraduationCap size={16} />
+                  <span>Student Registration</span>
+                </>
+              )}
+            </div>
+
+            <div className="auth-illustration-graphic">
+              {isAdmin ? <AdminIllustration /> : <StudentIllustration />}
+            </div>
+
+            <div className="auth-illustration-caption">
+              <h3>{isAdmin ? 'Faculty Administration' : 'Join the Examination Portal'}</h3>
+              <p>
+                {isAdmin
+                  ? 'Create an administrative account to oversee evaluations and publish digital marks.'
+                  : 'Register your student credentials to view semester results and download official digital grade cards.'}
+              </p>
+            </div>
           </div>
-          <h2 style={{ fontSize: '1.75rem', marginBottom: '0.35rem' }}>Student Registration</h2>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.92rem' }}>
-            Create your student portal account to access semester grades
-          </p>
         </div>
 
-        {error && <Alert type="error" message={error} onDismiss={() => setError('')} />}
+        {/* Right Side: Registration Form Panel */}
+        <div className="auth-form-side">
+          {/* Role Toggle Switcher */}
+          <div className="auth-role-switcher" role="tablist">
+            <button
+              type="button"
+              className={`role-switch-btn ${!isAdmin ? 'active student' : ''}`}
+              onClick={() => handleRoleChange('student')}
+              role="tab"
+              aria-selected={!isAdmin}
+            >
+              <GraduationCap size={16} />
+              <span>Student</span>
+            </button>
+            <button
+              type="button"
+              className={`role-switch-btn ${isAdmin ? 'active admin' : ''}`}
+              onClick={() => handleRoleChange('admin')}
+              role="tab"
+              aria-selected={isAdmin}
+            >
+              <Shield size={16} />
+              <span>Admin</span>
+            </button>
+          </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-row">
+          <div className="auth-form-header">
+            <h1 className="auth-heading">Register</h1>
+            <p className="auth-subheading">
+              {isAdmin ? 'Create your admin account' : 'Create your student account'}
+            </p>
+          </div>
+
+          {error && <Alert type="error" message={error} onDismiss={() => setError('')} />}
+
+          <form onSubmit={handleSubmit} className="auth-form">
+            {/* Full Name Field */}
             <div className="form-group">
-              <label className="form-label">Full Name *</label>
+              <label className="form-label" htmlFor="register-name">
+                Full Name
+              </label>
               <input
+                id="register-name"
                 type="text"
                 name="name"
                 className="form-input"
                 required
-                placeholder="e.g. Rahul Sharma"
+                placeholder={isAdmin ? 'e.g. Prof. Ramesh Kumar' : 'e.g. Rahul Sharma'}
                 value={formData.name}
                 onChange={handleChange}
+                autoComplete="name"
+                autoFocus
               />
             </div>
 
+            {/* Email Address Field */}
             <div className="form-group">
-              <label className="form-label">Roll Number *</label>
+              <label className="form-label" htmlFor="register-email">
+                Email Address
+              </label>
               <input
-                type="text"
-                name="rollNumber"
+                id="register-email"
+                type="email"
+                name="email"
                 className="form-input"
                 required
-                placeholder="e.g. 2024CS001"
-                value={formData.rollNumber}
+                placeholder={isAdmin ? 'admin@sves.org.in' : '2024cs001@sves.org.in'}
+                value={formData.email}
                 onChange={handleChange}
+                autoComplete="email"
               />
             </div>
-          </div>
 
-          <div className="form-group">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label className="form-label">Official College Email *</label>
-              <span style={{ fontSize: '0.78rem', color: 'var(--color-primary)', fontWeight: 600 }}>
-                Format: &lt;ROLL_NUMBER&gt;@sves.org.in
-              </span>
-            </div>
-            <input
-              type="email"
-              name="email"
-              className="form-input"
-              required
-              readOnly
-              style={{ backgroundColor: 'var(--color-bg-subtle, #f8fafc)', cursor: 'default' }}
-              placeholder="Auto-generated from Roll Number (e.g. 2024cs001@sves.org.in)"
-              value={formData.email}
-              onChange={handleChange}
-            />
-            <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '0.25rem', display: 'block' }}>
-              Your college email is automatically assigned as <code>{formData.rollNumber ? `${formData.rollNumber.trim().toLowerCase()}@sves.org.in` : '<rollnumber>@sves.org.in'}</code>.
-            </span>
-          </div>
-
-          <div className="form-row">
+            {/* Password Field */}
             <div className="form-group">
-              <label className="form-label">Department *</label>
-              <select
-                name="department"
-                className="form-select"
-                value={formData.department}
-                onChange={handleChange}
-              >
-                {departments.map((dept) => (
-                  <option key={dept} value={dept}>
-                    {dept}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Current Semester *</label>
-              <select
-                name="semester"
-                className="form-select"
-                value={formData.semester}
-                onChange={handleChange}
-              >
-                {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-                  <option key={s} value={s}>
-                    Semester {s}
-                  </option>
-                ))}
-              </select>
-              <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '0.25rem', display: 'block' }}>
-                Your currently enrolled semester. Examination records can only be entered up to this semester.
-              </span>
-            </div>
-
-            <div className="form-group" style={{ maxWidth: '100px' }}>
-              <label className="form-label">Section *</label>
-              <input
-                type="text"
-                name="section"
-                className="form-input"
-                maxLength="2"
-                required
-                value={formData.section}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="register-password" className="form-label">Password *</label>
+              <label className="form-label" htmlFor="register-password">
+                Password
+              </label>
               <div className="password-input-wrapper">
                 <input
                   id="register-password"
@@ -231,7 +232,7 @@ const Register = () => {
                   name="password"
                   className="form-input"
                   required
-                  placeholder="Minimum 6 characters"
+                  placeholder="Create a strong password (min 6 chars)"
                   value={formData.password}
                   onChange={handleChange}
                   autoComplete="new-password"
@@ -243,7 +244,6 @@ const Register = () => {
                   onMouseDown={(e) => e.preventDefault()}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   title={showPassword ? 'Hide password' : 'Show password'}
-                  aria-pressed={showPassword}
                   tabIndex="-1"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -251,16 +251,19 @@ const Register = () => {
               </div>
             </div>
 
+            {/* Confirm Password Field */}
             <div className="form-group">
-              <label htmlFor="register-confirmPassword" className="form-label">Confirm Password *</label>
+              <label className="form-label" htmlFor="register-confirm-password">
+                Confirm Password
+              </label>
               <div className="password-input-wrapper">
                 <input
-                  id="register-confirmPassword"
+                  id="register-confirm-password"
                   type={showConfirmPassword ? 'text' : 'password'}
                   name="confirmPassword"
                   className="form-input"
                   required
-                  placeholder="Repeat password"
+                  placeholder="Re-enter your password"
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   autoComplete="new-password"
@@ -270,32 +273,36 @@ const Register = () => {
                   className="password-toggle-btn"
                   onClick={() => setShowConfirmPassword((prev) => !prev)}
                   onMouseDown={(e) => e.preventDefault()}
-                  aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
-                  title={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
-                  aria-pressed={showConfirmPassword}
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  title={showConfirmPassword ? 'Hide password' : 'Show password'}
                   tabIndex="-1"
                 >
                   {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
+
+            {/* Register Submit Button */}
+            <button
+              type="submit"
+              className={`auth-submit-btn ${isAdmin ? 'admin-btn' : 'student-btn'}`}
+              disabled={loading}
+            >
+              {loading ? 'Creating Account...' : 'Register'}
+              {!loading && <ArrowRight size={18} />}
+            </button>
+          </form>
+
+          {/* Already have an account? Login Link */}
+          <div className="auth-footer-link">
+            <span>Already have an account? </span>
+            <Link
+              to={isAdmin ? '/login/admin' : '/login/student'}
+              className={`auth-accent-link ${isAdmin ? 'admin-color' : 'student-color'}`}
+            >
+              Login
+            </Link>
           </div>
-
-          <button
-            type="submit"
-            className="btn btn-primary btn-lg"
-            style={{ width: '100%', marginTop: '0.75rem' }}
-            disabled={loading}
-          >
-            {loading ? 'Registering...' : 'Complete Registration'}
-          </button>
-        </form>
-
-        <div style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>
-          Already registered?{' '}
-          <Link to="/login" style={{ fontWeight: 600 }}>
-            Log in to portal
-          </Link>
         </div>
       </div>
     </div>

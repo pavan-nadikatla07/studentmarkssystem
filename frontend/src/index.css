@@ -716,3 +716,637 @@ a:hover {
     page-break-inside: avoid;
   }
 }
+
+
+/* ==========================================================================
+   Modern Authentication UI & Role Selection (Student & Admin)
+   ========================================================================== */
+
+/* Navbar Auth Buttons (Only Login & Register) */
+.nav-auth-btn {
+  font-family: var(--font-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.55rem 1.35rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition);
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-login-btn {
+  background: transparent;
+  color: var(--color-secondary);
+  border-color: var(--color-border);
+}
+
+.nav-login-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-primary);
+  border-color: #cbd5e1;
+}
+
+.nav-register-btn {
+  background: var(--color-primary);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+}
+
+.nav-register-btn:hover {
+  background: var(--color-primary-hover);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+
+/* --------------------------------------------------------------------------
+   Role Selection Modal (Centered Popup with Darkened Overlay)
+   -------------------------------------------------------------------------- */
+.role-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.68);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 1.5rem;
+  animation: roleOverlayIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes roleOverlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.role-modal-container {
+  position: relative;
+  background: #ffffff;
+  border-radius: 24px;
+  width: 100%;
+  max-width: 620px;
+  padding: 2.5rem 2rem 2.25rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(226, 232, 240, 0.8);
+  animation: roleModalSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  overflow: hidden;
+}
+
+@keyframes roleModalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.role-modal-close-btn {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: #f8fafc;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.role-modal-close-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fecaca;
+  transform: rotate(90deg);
+}
+
+.role-modal-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.role-modal-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--color-secondary);
+  margin-bottom: 0.35rem;
+  letter-spacing: -0.02em;
+}
+
+.role-modal-subtitle {
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+/* Two Role Selection Cards Grid */
+.role-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.role-card {
+  background: #ffffff;
+  border: 1.5px solid var(--color-border);
+  border-radius: 20px;
+  padding: 1.75rem 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  position: relative;
+  outline: none;
+}
+
+.role-card:hover, .role-card:focus-visible {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 30px -8px rgba(0, 0, 0, 0.12);
+}
+
+/* Student Card */
+.role-card.student-card:hover, .role-card.student-card:focus-visible {
+  border-color: #93c5fd;
+  background: linear-gradient(180deg, #ffffff 0%, #f0f7ff 100%);
+}
+
+/* Admin Card */
+.role-card.admin-card:hover, .role-card.admin-card:focus-visible {
+  border-color: #c4b5fd;
+  background: linear-gradient(180deg, #ffffff 0%, #faf5ff 100%);
+}
+
+.role-avatar-wrapper {
+  margin-bottom: 1.15rem;
+  transition: transform 0.25s ease;
+}
+
+.role-card:hover .role-avatar-wrapper {
+  transform: scale(1.06);
+}
+
+.role-card-label {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--color-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.role-card-desc {
+  font-size: 0.86rem;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+  margin-bottom: 1.5rem;
+  flex-grow: 1;
+}
+
+.role-continue-btn {
+  width: 100%;
+  padding: 0.75rem 1.25rem;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: var(--transition);
+}
+
+.role-continue-btn.student-btn {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+}
+
+.role-continue-btn.student-btn:hover {
+  background: #1d4ed8;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+}
+
+.role-continue-btn.admin-btn {
+  background: #7c3aed;
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(124, 58, 237, 0.25);
+}
+
+.role-continue-btn.admin-btn:hover {
+  background: #6d28d9;
+  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.35);
+}
+
+/* --------------------------------------------------------------------------
+   Split-Layout Authentication Pages (Student Blue / Admin Purple)
+   -------------------------------------------------------------------------- */
+.auth-page-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1.5rem 0 2.5rem;
+  width: 100%;
+}
+
+.auth-card-container {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  width: 100%;
+  max-width: 980px;
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* Left Illustration Panel */
+.auth-illustration-side {
+  padding: 3rem 2.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  text-align: center;
+  border-right: 1px solid var(--color-border);
+}
+
+.auth-illustration-side.student-bg {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+}
+
+.auth-illustration-side.admin-bg {
+  background: linear-gradient(135deg, #faf5ff 0%, #ede9fe 100%);
+}
+
+.auth-illustration-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  max-width: 340px;
+}
+
+.auth-role-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.4rem 1rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.student-theme .auth-role-tag {
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.admin-theme .auth-role-tag {
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+.auth-illustration-graphic {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.auth-illustration-caption h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-secondary);
+  margin-bottom: 0.45rem;
+}
+
+.auth-illustration-caption p {
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* Right Form Panel */
+.auth-form-side {
+  padding: 3rem 3rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Role Switcher Pill Bar */
+.auth-role-switcher {
+  display: flex;
+  background: #f1f5f9;
+  padding: 0.3rem;
+  border-radius: 12px;
+  margin-bottom: 1.75rem;
+  gap: 0.25rem;
+}
+
+.role-switch-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.role-switch-btn:hover {
+  color: var(--color-secondary);
+}
+
+.role-switch-btn.active.student {
+  background: #ffffff;
+  color: #2563eb;
+  box-shadow: 0 2px 5px rgba(37, 99, 235, 0.15);
+}
+
+.role-switch-btn.active.admin {
+  background: #ffffff;
+  color: #7c3aed;
+  box-shadow: 0 2px 5px rgba(124, 58, 237, 0.15);
+}
+
+.auth-form-header {
+  margin-bottom: 1.75rem;
+}
+
+.auth-heading {
+  font-size: 2.1rem;
+  font-weight: 800;
+  color: var(--color-secondary);
+  margin-bottom: 0.4rem;
+  letter-spacing: -0.02em;
+}
+
+.auth-subheading {
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.auth-form .form-group {
+  margin-bottom: 0;
+}
+
+.auth-form .form-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-secondary);
+  margin-bottom: 0.35rem;
+}
+
+.auth-form .form-input {
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+}
+
+.student-theme .auth-form .form-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.admin-theme .auth-form .form-input:focus {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+}
+
+.auth-submit-btn {
+  width: 100%;
+  padding: 0.85rem 1.5rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.auth-submit-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.auth-submit-btn.student-btn {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.auth-submit-btn.student-btn:hover:not(:disabled) {
+  background: #1d4ed8;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+
+.auth-submit-btn.admin-btn {
+  background: #7c3aed;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
+}
+
+.auth-submit-btn.admin-btn:hover:not(:disabled) {
+  background: #6d28d9;
+  box-shadow: 0 6px 18px rgba(124, 58, 237, 0.35);
+  transform: translateY(-1px);
+}
+
+.auth-footer-link {
+  text-align: center;
+  margin-top: 1.5rem;
+  font-size: 0.92rem;
+  color: var(--color-text-muted);
+}
+
+.auth-accent-link {
+  font-weight: 700;
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.auth-accent-link.student-color {
+  color: #2563eb;
+}
+
+.auth-accent-link.student-color:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.auth-accent-link.admin-color {
+  color: #7c3aed;
+}
+
+.auth-accent-link.admin-color:hover {
+  color: #6d28d9;
+  text-decoration: underline;
+}
+
+/* 1-Click Demo Accounts in Viva / Evaluation */
+.auth-demo-section {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px dashed var(--color-border);
+  text-align: center;
+}
+
+.demo-toggle-btn {
+  background: transparent;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-light);
+  cursor: pointer;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  transition: var(--transition);
+}
+
+.demo-toggle-btn:hover {
+  color: var(--color-secondary);
+  background: #f1f5f9;
+}
+
+.demo-accounts-pill-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+.demo-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: #f8fafc;
+  cursor: pointer;
+  text-align: left;
+  transition: var(--transition);
+}
+
+.demo-pill-btn.student {
+  color: #0369a1;
+  border-color: #bae6fd;
+}
+
+.demo-pill-btn.student:hover {
+  background: #e0f2fe;
+}
+
+.demo-pill-btn.admin {
+  color: #6d28d9;
+  border-color: #ddd6fe;
+}
+
+.demo-pill-btn.admin:hover {
+  background: #ede9fe;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Design for Mobile & Tablet
+   -------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  .auth-card-container {
+    grid-template-columns: 1fr;
+    max-width: 520px;
+  }
+
+  .auth-illustration-side {
+    padding: 2.25rem 1.5rem;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .auth-illustration-caption {
+    display: none;
+  }
+
+  .auth-illustration-graphic svg {
+    max-width: 220px;
+  }
+
+  .auth-form-side {
+    padding: 2.25rem 1.75rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .role-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .role-modal-container {
+    padding: 2rem 1.25rem 1.5rem;
+  }
+
+  .role-modal-title {
+    font-size: 1.65rem;
+  }
+
+  .auth-card-container {
+    border-radius: 18px;
+  }
+
+  .auth-illustration-side {
+    padding: 1.5rem 1rem;
+  }
+
+  .auth-form-side {
+    padding: 1.75rem 1.25rem;
+  }
+
+  .auth-heading {
+    font-size: 1.75rem;
+  }
+}
