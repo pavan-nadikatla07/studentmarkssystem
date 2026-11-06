@@ -31,6 +31,12 @@ const userSchema = new mongoose.Schema(
       enum: ['admin', 'student'],
       default: 'student',
     },
+    // MongoDB ObjectId reference linking user account to student record
+    student: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Student',
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -58,7 +64,8 @@ userSchema.methods.toJSON = function () {
   return user;
 };
 
-// Indexes as required by MongoDB concepts in PDF (unique: true creates the indexes for email and userId)
+// Indexes
+userSchema.index({ student: 1 });
 
 const User = mongoose.model('User', userSchema);
 module.exports = User;

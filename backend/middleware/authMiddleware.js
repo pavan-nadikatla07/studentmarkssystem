@@ -42,7 +42,16 @@ const protect = async (req, res, next) => {
 
     // If user is a student, link their verified Student record from MongoDB
     if (user.role === 'student') {
-      let student = await Student.findOne({ userId: user.userId });
+      let student = null;
+      if (user.student) {
+        student = await Student.findById(user.student);
+      }
+      if (!student) {
+        student = await Student.findOne({ user: user._id });
+      }
+      if (!student) {
+        student = await Student.findOne({ userId: user.userId });
+      }
       if (!student) {
         student = await Student.findOne({ studentName: user.name });
       }

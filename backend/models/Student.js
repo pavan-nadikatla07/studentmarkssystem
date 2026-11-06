@@ -22,7 +22,7 @@ const studentSchema = new mongoose.Schema(
     },
     department: {
       type: String,
-      required: [true, 'Department is required'],
+      required: [true, 'Department/Branch is required'],
       trim: true,
     },
     semester: {
@@ -36,10 +36,18 @@ const studentSchema = new mongoose.Schema(
       required: [true, 'Section is required'],
       uppercase: true,
       trim: true,
+      default: 'A',
     },
+    // Backward-compatible string userId
     userId: {
       type: String,
       trim: true,
+      default: null,
+    },
+    // Direct MongoDB ObjectId reference to linked User account
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
       default: null,
     },
   },
@@ -48,7 +56,18 @@ const studentSchema = new mongoose.Schema(
   }
 );
 
-// Compound index as required by MongoDB concepts in PDF
+// Indexes
+// Unique partial indexes ensuring strict 1:1 mapping between a login account and a student record
+// while allowing multiple unlinked student records (where user/userId is null or omitted)
+studentSchema.index(
+  { user: 1 },
+  { unique: true, partialFilterExpression: { user: { $type: 'objectId' } } }
+);
+studentSchema.index(
+  { userId: 1 },
+  { unique: true, partialFilterExpression: { userId: { $type: 'string' } } }
+);
+// Compound index for department and semester queries
 studentSchema.index({ department: 1, semester: 1 });
 
 const Student = mongoose.model('Student', studentSchema);
