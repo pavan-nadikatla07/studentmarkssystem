@@ -23,29 +23,50 @@ const refreshSemesterSGPA = async (studentId, semester) => {
 /**
  * @route   GET /results
  * @desc    Get results with optional filters (studentId, semester, subjectCode)
- * @access  Private (Admin or Owner Student)
+ * @access  Private (Admin can view all; Students can ONLY view their own results)
  */
 const getResults = async (req, res, next) => {
   try {
     const { studentId, semester, subjectCode } = req.query;
     let query = {};
 
-    // Role-based filter restriction: If student, only view own results
+    // Role-based permission restriction:
     if (req.user && req.user.role === 'student') {
-      const student = await Student.findOne({ userId: req.user.userId });
-      if (student) {
-        query.studentId = student.studentId;
-      } else {
-        // Fallback search by studentName
-        const fallbackStudent = await Student.findOne({ studentName: req.user.name });
-        if (fallbackStudent) {
-          query.studentId = fallbackStudent.studentId;
-        } else {
-          return res.status(200).json({ success: true, count: 0, data: [] });
-        }
+      let resolvedStudent = req.student;
+      if (!resolvedStudent) {
+        resolvedStudent = await Student.findOne({
+          $or: [{ userId: req.user.userId }, { studentName: req.user.name }],
+        });
       }
+
+      if (!resolvedStudent) {
+        return res.status(200).json({ success: true, count: 0, data: [] });
+      }
+
+      // If a student explicitly queries another student's ID or Roll Number, deny access
+      if (
+        studentId &&
+        studentId !== resolvedStudent.studentId &&
+        studentId.toUpperCase() !== resolvedStudent.rollNumber
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You are only authorized to view your own examination results.',
+        });
+      }
+
+      // Strictly lock query to the authenticated student's own records
+      query.studentId = resolvedStudent.studentId;
     } else if (studentId) {
-      query.studentId = studentId;
+      // Admin query: can filter by studentId or rollNumber
+      const targetStudent = await Student.findOne({
+        $or: [{ studentId }, { rollNumber: studentId.toUpperCase() }],
+      });
+      if (targetStudent) {
+        query.studentId = targetStudent.studentId;
+      } else {
+        query.studentId = studentId;
+      }
     }
 
     if (semester) {
@@ -59,7 +80,7 @@ const getResults = async (req, res, next) => {
     // Using find() as required by PDF
     const results = await Result.find(query).sort({ semester: 1, subjectCode: 1 });
 
-    // Enhance results with student information for admin view
+    // Enhance results with student information
     const studentIds = [...new Set(results.map((r) => r.studentId))];
     const students = await Student.find({ studentId: { $in: studentIds } });
     const studentMap = {};
@@ -86,7 +107,7 @@ const getResults = async (req, res, next) => {
 /**
  * @route   GET /results/:id
  * @desc    Get single result by resultId or _id
- * @access  Private
+ * @access  Private (Admin can view any; Students can ONLY view their own result)
  */
 const getResultById = async (req, res, next) => {
   try {
@@ -102,6 +123,23 @@ const getResultById = async (req, res, next) => {
         success: false,
         message: `Result not found with ID ${id}`,
       });
+    }
+
+    // Strict RBAC: If requester is a student, verify they own this result
+    if (req.user && req.user.role === 'student') {
+      let resolvedStudent = req.student;
+      if (!resolvedStudent) {
+        resolvedStudent = await Student.findOne({
+          $or: [{ userId: req.user.userId }, { studentName: req.user.name }],
+        });
+      }
+
+      if (!resolvedStudent || result.studentId !== resolvedStudent.studentId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You are only authorized to view your own examination results.',
+        });
+      }
     }
 
     const student = await Student.findOne({ studentId: result.studentId });
@@ -121,10 +159,18 @@ const getResultById = async (req, res, next) => {
 /**
  * @route   POST /results
  * @desc    Add student result & calculate Grade + SGPA
- * @access  Private (Admin)
+ * @access  Private (Admin Only)
  */
 const createResult = async (req, res, next) => {
   try {
+    // Strict RBAC: Students must NOT be able to add or upload marks
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Admin privileges required to upload marks.',
+      });
+    }
+
     const { studentId, subjectCode, subjectName, marks, semester } = req.body;
 
     if (!studentId || !subjectCode || !subjectName || marks === undefined || !semester) {
@@ -209,10 +255,18 @@ const createResult = async (req, res, next) => {
 /**
  * @route   PUT /results/:id
  * @desc    Update marks/subject of a result using updateOne()
- * @access  Private (Admin)
+ * @access  Private (Admin Only)
  */
 const updateResult = async (req, res, next) => {
   try {
+    // Strict RBAC: Students must NOT be able to edit or update marks
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Admin privileges required to update marks.',
+      });
+    }
+
     const id = req.params.id;
     const { marks, subjectName, subjectCode, semester } = req.body;
 
@@ -276,10 +330,18 @@ const updateResult = async (req, res, next) => {
 /**
  * @route   DELETE /results/:id
  * @desc    Delete result using deleteOne()
- * @access  Private (Admin)
+ * @access  Private (Admin Only)
  */
 const deleteResult = async (req, res, next) => {
   try {
+    // Strict RBAC: Students must NOT be able to delete marks
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Admin privileges required to delete marks.',
+      });
+    }
+
     const id = req.params.id;
 
     let result = await Result.findOne({ resultId: id });
@@ -314,10 +376,18 @@ const deleteResult = async (req, res, next) => {
 /**
  * @route   GET /results/reports/semester
  * @desc    Generate semester reports using MongoDB aggregate()
- * @access  Private (Admin)
+ * @access  Private (Admin Only)
  */
 const getSemesterReport = async (req, res, next) => {
   try {
+    // Strict RBAC: Students must NOT access admin reports or analytics
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Admin privileges required to view semester aggregate reports.',
+      });
+    }
+
     const { semester } = req.query;
     const matchStage = {};
     if (semester) {

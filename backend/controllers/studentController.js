@@ -4,10 +4,18 @@ const Result = require('../models/Result');
 /**
  * @route   GET /students
  * @desc    Get all students (with optional search and filter)
- * @access  Private (Admin or Authenticated)
+ * @access  Private (Admin Only)
  */
 const getStudents = async (req, res, next) => {
   try {
+    // Strict RBAC: Only administrators can view all student records
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Admin privileges required to view all student records.',
+      });
+    }
+
     const { search, department, semester } = req.query;
     let query = {};
 
@@ -42,12 +50,13 @@ const getStudents = async (req, res, next) => {
 
 /**
  * @route   GET /students/:id
- * @desc    Get single student by studentId or _id
- * @access  Private
+ * @desc    Get single student by studentId, rollNumber, or _id
+ * @access  Private (Admin can view any student; Student can ONLY view their own profile)
  */
 const getStudentById = async (req, res, next) => {
   try {
     const id = req.params.id;
+
     // Find by studentId or rollNumber or Mongo ObjectId
     let student = await Student.findOne({
       $or: [{ studentId: id }, { rollNumber: id.toUpperCase() }],
@@ -64,6 +73,26 @@ const getStudentById = async (req, res, next) => {
       });
     }
 
+    // Strict RBAC: If requester is a student, verify they are accessing ONLY their own profile
+    if (req.user && req.user.role === 'student') {
+      const ownStudentId = req.student ? req.student.studentId : null;
+      const ownRoll = req.student ? req.student.rollNumber : null;
+      const ownUserId = req.user.userId;
+
+      const isOwner =
+        (ownStudentId && student.studentId === ownStudentId) ||
+        (ownRoll && student.rollNumber === ownRoll) ||
+        (student.userId && student.userId === ownUserId) ||
+        (student.studentName === req.user.name);
+
+      if (!isOwner) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You are only authorized to view your own student profile.',
+        });
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: student,
@@ -76,10 +105,18 @@ const getStudentById = async (req, res, next) => {
 /**
  * @route   POST /students
  * @desc    Create a new student record
- * @access  Private (Admin)
+ * @access  Private (Admin Only)
  */
 const createStudent = async (req, res, next) => {
   try {
+    // Strict RBAC: Students must NOT be able to add student records
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Admin privileges required to create student records.',
+      });
+    }
+
     const { rollNumber, studentName, department, semester, section } = req.body;
 
     if (!rollNumber || !studentName || !department || !semester || !section) {
@@ -121,10 +158,18 @@ const createStudent = async (req, res, next) => {
 /**
  * @route   PUT /students/:id
  * @desc    Update student details using updateOne()
- * @access  Private (Admin)
+ * @access  Private (Admin Only)
  */
 const updateStudent = async (req, res, next) => {
   try {
+    // Strict RBAC: Students must NOT be able to modify student records
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Admin privileges required to update student records.',
+      });
+    }
+
     const id = req.params.id;
     const { studentName, department, semester, section, rollNumber } = req.body;
 
@@ -169,10 +214,18 @@ const updateStudent = async (req, res, next) => {
 /**
  * @route   DELETE /students/:id
  * @desc    Delete student record and associated results using deleteOne()
- * @access  Private (Admin)
+ * @access  Private (Admin Only)
  */
 const deleteStudent = async (req, res, next) => {
   try {
+    // Strict RBAC: Students must NOT be able to delete student records
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Admin privileges required to delete student records.',
+      });
+    }
+
     const id = req.params.id;
 
     let student = await Student.findOne({
