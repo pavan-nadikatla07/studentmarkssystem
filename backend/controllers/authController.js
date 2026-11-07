@@ -47,17 +47,18 @@ const generateToken = (userId, role) => {
  * @access  Public
  */
 const registerUser = async (req, res, next) => {
-  // Use MongoDB transaction if supported (e.g. MongoDB Atlas replica set)
-  let session = null;
-  let useTransaction = false;
+  // Use MongoDB transaction only if supported (Replica Set or Sharded Cluster e.g. MongoDB Atlas)
+  const topologyType = mongoose.connection?.client?.topology?.description?.type;
+  const isReplicaSet = topologyType === 'ReplicaSetWithPrimary' || topologyType === 'Sharded';
 
-  try {
-    session = await mongoose.startSession();
-    session.startTransaction();
-    useTransaction = true;
-  } catch {
-    session = null;
-    useTransaction = false;
+  let session = null;
+  if (isReplicaSet) {
+    try {
+      session = await mongoose.startSession();
+      session.startTransaction();
+    } catch {
+      session = null;
+    }
   }
 
   // Track created IDs for manual compensation rollback if transactions not supported
