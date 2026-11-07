@@ -167,6 +167,13 @@ export const studentAPI = {
     });
   },
 
+  getByRoll: async (rollNumber) => {
+    return resilientFetch(`/students/roll/${encodeURIComponent(rollNumber.trim().toUpperCase())}`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+  },
+
   create: async (data) => {
     return resilientFetch('/students', {
       method: 'POST',

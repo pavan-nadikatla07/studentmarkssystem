@@ -56,6 +56,7 @@ const ManageResults = () => {
   // Form states for Result Entry (Module 1, 2, 3, 4, 5)
   const [resultFormData, setResultFormData] = useState({
     studentId: '',
+    rollNumber: '',
     branch: 'CSE',
     semester: 1,
     selectedSubjectId: '',
@@ -63,6 +64,11 @@ const ManageResults = () => {
     subjectName: '',
     marks: '',
   });
+
+  // Automatic Roll Number Lookup & Synchronization State
+  const [isSearchingRoll, setIsSearchingRoll] = useState(false);
+  const [rollSearchStatus, setRollSearchStatus] = useState('idle'); // 'idle' | 'searching' | 'found' | 'not_found'
+  const [rollSearchMessage, setRollSearchMessage] = useState('');
 
   // Form states for Add Student
   const [studentFormData, setStudentFormData] = useState({
@@ -100,9 +106,12 @@ const ManageResults = () => {
           setResultFormData((prev) => ({
             ...prev,
             studentId: first.studentId,
+            rollNumber: first.rollNumber || '',
             branch: firstBranch,
             semester: firstSem,
           }));
+          setRollSearchStatus('found');
+          setRollSearchMessage(`✓ Verified Student: ${first.studentName}`);
         }
       }
     } catch (err) {
@@ -117,9 +126,9 @@ const ManageResults = () => {
   }, []);
 
   // Currently selected student in Add Result Modal
-  const selectedStudent =
-    students.find((s) => s.studentId === resultFormData.studentId) ||
-    (students.length > 0 ? students[0] : null);
+  const selectedStudent = resultFormData.studentId
+    ? students.find((s) => s.studentId === resultFormData.studentId)
+    : null;
 
   // Maximum semester marks can be entered for (student's enrolled semester)
   const maxAllowedSemester = selectedStudent ? Number(selectedStudent.semester) : 1;
@@ -147,48 +156,155 @@ const ManageResults = () => {
     resultFormData.semester
   );
 
-  // Handle student change in Add Result Modal
+  // Helper: Apply student selection to all dependent form fields
+  const applyStudentSelection = (student) => {
+    if (!student) return;
+    const studentBranch = getBranchFromDepartment(student.department);
+    const studentSem = Number(student.semester) || 1;
+
+    let subId = '';
+    let subCode = '';
+    let subName = '';
+    if (studentSem === 7) {
+      subId = 'PROJECT';
+      subCode = 'PROJECT';
+      subName = 'Project';
+    } else if (studentSem === 8) {
+      subId = 'INTERNSHIP';
+      subCode = 'INTERNSHIP';
+      subName = 'Internship';
+    }
+
+    setResultFormData((prev) => ({
+      ...prev,
+      studentId: student.studentId,
+      rollNumber: student.rollNumber || prev.rollNumber,
+      branch: studentBranch,
+      semester: studentSem,
+      selectedSubjectId: subId,
+      subjectCode: subCode,
+      subjectName: subName,
+    }));
+  };
+
+  // Handle manual Roll Number input change
+  const handleRollNumberChange = (rawVal) => {
+    const val = rawVal.toUpperCase();
+    setResultFormData((prev) => ({ ...prev, rollNumber: val }));
+
+    if (!val.trim()) {
+      setRollSearchStatus('idle');
+      setRollSearchMessage('');
+      setResultFormData((prev) => ({
+        ...prev,
+        rollNumber: '',
+        studentId: '',
+        selectedSubjectId: '',
+        subjectCode: '',
+        subjectName: '',
+      }));
+      return;
+    }
+
+    setRollSearchStatus('searching');
+    setRollSearchMessage('Searching student records...');
+  };
+
+  // Debounced search when administrator enters a Roll Number
+  useEffect(() => {
+    const trimmed = (resultFormData.rollNumber || '').trim().toUpperCase();
+    if (!trimmed) return;
+
+    // Check if the currently selected student already matches this rollNumber
+    const currentStudent = students.find((s) => s.studentId === resultFormData.studentId);
+    if (currentStudent && currentStudent.rollNumber?.toUpperCase() === trimmed) {
+      setRollSearchStatus('found');
+      setRollSearchMessage(`✓ Verified Student: ${currentStudent.studentName}`);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearchingRoll(true);
+      setRollSearchStatus('searching');
+      setRollSearchMessage('Searching student records...');
+
+      // 1. Check local loaded students list
+      const localStudent = students.find(
+        (s) => s.rollNumber?.toUpperCase() === trimmed
+      );
+
+      if (localStudent) {
+        applyStudentSelection(localStudent);
+        setIsSearchingRoll(false);
+        setRollSearchStatus('found');
+        setRollSearchMessage(`✓ Verified Student: ${localStudent.studentName}`);
+        return;
+      }
+
+      // 2. Query MongoDB backend API via getByRoll
+      try {
+        const res = await studentAPI.getByRoll(trimmed);
+        if (res && res.success && res.data) {
+          const foundStudent = res.data;
+          setStudents((prev) => {
+            const exists = prev.some(
+              (s) => s.studentId === foundStudent.studentId || s.rollNumber === foundStudent.rollNumber
+            );
+            return exists ? prev : [foundStudent, ...prev];
+          });
+          applyStudentSelection(foundStudent);
+          setRollSearchStatus('found');
+          setRollSearchMessage(`✓ Verified Student: ${foundStudent.studentName}`);
+        } else {
+          setRollSearchStatus('not_found');
+          setRollSearchMessage('No student found with this Roll Number.');
+          setResultFormData((prev) => ({
+            ...prev,
+            studentId: '',
+            selectedSubjectId: '',
+            subjectCode: '',
+            subjectName: '',
+          }));
+        }
+      } catch (err) {
+        setRollSearchStatus('not_found');
+        setRollSearchMessage('No student found with this Roll Number.');
+        setResultFormData((prev) => ({
+          ...prev,
+          studentId: '',
+          selectedSubjectId: '',
+          subjectCode: '',
+          subjectName: '',
+        }));
+      } finally {
+        setIsSearchingRoll(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [resultFormData.rollNumber]);
+
+  // Handle student change from dropdown in Add Result Modal
   const handleStudentSelect = (newStudentId) => {
     if (!newStudentId) {
-      setResultFormData((prev) => ({ ...prev, studentId: '' }));
+      setResultFormData((prev) => ({
+        ...prev,
+        studentId: '',
+        rollNumber: '',
+        selectedSubjectId: '',
+        subjectCode: '',
+        subjectName: '',
+      }));
+      setRollSearchStatus('idle');
+      setRollSearchMessage('');
       return;
     }
     const chosen = students.find((s) => s.studentId === newStudentId);
     if (!chosen) return;
 
-    const studentBranch = getBranchFromDepartment(chosen.department);
-    const branchChanged = studentBranch !== resultFormData.branch;
-
-    let subId = resultFormData.selectedSubjectId;
-    let subCode = resultFormData.subjectCode;
-    let subName = resultFormData.subjectName;
-
-    // Reset subject selection if branch changed
-    if (branchChanged) {
-      const currentSem = Number(resultFormData.semester);
-      if (currentSem === 7) {
-        subId = 'PROJECT';
-        subCode = 'PROJECT';
-        subName = 'Project';
-      } else if (currentSem === 8) {
-        subId = 'INTERNSHIP';
-        subCode = 'INTERNSHIP';
-        subName = 'Internship';
-      } else {
-        subId = '';
-        subCode = '';
-        subName = '';
-      }
-    }
-
-    setResultFormData((prev) => ({
-      ...prev,
-      studentId: newStudentId,
-      branch: branchChanged ? studentBranch : prev.branch,
-      selectedSubjectId: subId,
-      subjectCode: subCode,
-      subjectName: subName,
-    }));
+    applyStudentSelection(chosen);
+    setRollSearchStatus('found');
+    setRollSearchMessage(`✓ Verified Student: ${chosen.studentName}`);
   };
 
   // Handle Branch change
@@ -199,33 +315,18 @@ const ManageResults = () => {
     let subName = '';
 
     if (currentSem === 7) {
-      // Semester VII special rule: Project only
       subId = 'PROJECT';
       subCode = 'PROJECT';
       subName = 'Project';
     } else if (currentSem === 8) {
-      // Semester VIII special rule: Internship only
       subId = 'INTERNSHIP';
       subCode = 'INTERNSHIP';
       subName = 'Internship';
     }
 
-    // Auto-select a candidate belonging to this new branch if current candidate is in another branch
-    const branchStudents = students.filter(
-      (s) => getBranchFromDepartment(s.department) === newBranch
-    );
-    const currentStudent = students.find((s) => s.studentId === resultFormData.studentId);
-    let nextStudentId = '';
-    if (currentStudent && getBranchFromDepartment(currentStudent.department) === newBranch) {
-      nextStudentId = currentStudent.studentId;
-    } else if (branchStudents.length > 0) {
-      nextStudentId = branchStudents[0].studentId;
-    }
-
     setResultFormData((prev) => ({
       ...prev,
       branch: newBranch,
-      studentId: nextStudentId,
       selectedSubjectId: subId,
       subjectCode: subCode,
       subjectName: subName,
@@ -317,6 +418,7 @@ const ManageResults = () => {
 
     setResultFormData({
       studentId: targetStudent ? targetStudent.studentId : '',
+      rollNumber: targetStudent ? (targetStudent.rollNumber || '') : '',
       branch: studentBranch,
       semester: targetSem,
       selectedSubjectId: subId,
@@ -324,6 +426,8 @@ const ManageResults = () => {
       subjectName: subName,
       marks: '',
     });
+    setRollSearchStatus(targetStudent ? 'found' : 'idle');
+    setRollSearchMessage(targetStudent ? `✓ Verified Student: ${targetStudent.studentName}` : '');
     setIsAddModalOpen(true);
   };
 
@@ -372,7 +476,18 @@ const ManageResults = () => {
     }
 
     if (!resultFormData.studentId) {
-      setAlert({ type: 'error', message: 'Please select a candidate student to record marks for.' });
+      setAlert({
+        type: 'error',
+        message: 'Please enter a valid Roll Number or select a candidate student to record marks for.',
+      });
+      return;
+    }
+
+    if (rollSearchStatus === 'not_found') {
+      setAlert({
+        type: 'error',
+        message: 'No student found with this Roll Number. Please verify and enter a registered student Roll Number.',
+      });
       return;
     }
 
@@ -399,6 +514,7 @@ const ManageResults = () => {
     try {
       const res = await resultAPI.create({
         studentId: resultFormData.studentId,
+        rollNumber: resultFormData.rollNumber,
         semester: requestedSem,
         subjectCode: finalCode.trim().toUpperCase(),
         subjectName: finalName.trim(),
@@ -420,6 +536,7 @@ const ManageResults = () => {
 
         setResultFormData({
           studentId: activeStudent ? activeStudent.studentId : '',
+          rollNumber: activeStudent ? (activeStudent.rollNumber || '') : '',
           branch: activeBranch,
           semester: activeSem,
           selectedSubjectId: '',
@@ -427,6 +544,8 @@ const ManageResults = () => {
           subjectName: '',
           marks: '',
         });
+        setRollSearchStatus(activeStudent ? 'found' : 'idle');
+        setRollSearchMessage(activeStudent ? `✓ Verified Student: ${activeStudent.studentName}` : '');
         fetchData();
       }
     } catch (err) {
@@ -1010,17 +1129,147 @@ const ManageResults = () => {
           title="Add Student Examination Result"
         >
           <form onSubmit={handleAddResult}>
-            {/* 1. Branch & Semester Selection (Section 1) */}
+            {/* 1. Roll Number (New Field - Manual Entry with Automatic Autofill) */}
+            <div className="form-group">
+              <label
+                className="form-label"
+                htmlFor="result-roll-number"
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
+                <span>1. Roll Number *</span>
+                {rollSearchStatus === 'found' && (
+                  <span style={{ fontSize: '0.74rem', color: '#16a34a', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <CheckCircle size={12} /> Student Verified
+                  </span>
+                )}
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  id="result-roll-number"
+                  className="form-input"
+                  placeholder="Enter Student Roll Number (e.g. 2024CS001, 24A81A0542)"
+                  value={resultFormData.rollNumber}
+                  onChange={(e) => handleRollNumberChange(e.target.value)}
+                  autoComplete="off"
+                  style={{
+                    textTransform: 'uppercase',
+                    fontWeight: 600,
+                    letterSpacing: '0.5px',
+                    borderColor:
+                      rollSearchStatus === 'found'
+                        ? '#16a34a'
+                        : rollSearchStatus === 'not_found'
+                        ? '#dc2626'
+                        : undefined,
+                    backgroundColor: rollSearchStatus === 'found' ? '#f0fdf4' : undefined,
+                    paddingRight: isSearchingRoll ? '2.5rem' : '0.85rem',
+                  }}
+                />
+                {isSearchingRoll && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      right: '0.85rem',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <span className="spinner" style={{ width: '16px', height: '16px' }} />
+                  </div>
+                )}
+              </div>
+
+              {/* Real-time search status feedback */}
+              {rollSearchStatus === 'searching' && (
+                <div style={{ fontSize: '0.78rem', color: 'var(--color-primary)', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span>Searching student records...</span>
+                </div>
+              )}
+              {rollSearchStatus === 'found' && (
+                <div style={{ fontSize: '0.78rem', color: '#16a34a', marginTop: '0.35rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <CheckCircle size={14} />
+                  <span>{rollSearchMessage}</span>
+                </div>
+              )}
+              {rollSearchStatus === 'not_found' && (
+                <div style={{ fontSize: '0.78rem', color: '#dc2626', marginTop: '0.35rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <AlertTriangle size={14} />
+                  <span>{rollSearchMessage || 'No student found with this Roll Number.'}</span>
+                </div>
+              )}
+            </div>
+
+            {/* 2. Candidate / Student (Synchronized with Roll Number) */}
+            <div className="form-group">
+              <label
+                className="form-label"
+                htmlFor="result-student-select"
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
+                <span>2. Candidate / Student *</span>
+                {selectedStudent && (
+                  <span style={{ fontSize: '0.74rem', color: '#16a34a', fontWeight: 700 }}>
+                    Linked: {selectedStudent.studentId}
+                  </span>
+                )}
+              </label>
+              <select
+                id="result-student-select"
+                className="form-select"
+                required
+                value={resultFormData.studentId}
+                onChange={(e) => handleStudentSelect(e.target.value)}
+              >
+                <option value="">-- Select Candidate / Student --</option>
+                {students.map((s) => (
+                  <option key={s.studentId} value={s.studentId}>
+                    {s.studentName} ({s.rollNumber}) &bull; {getBranchFromDepartment(s.department)} &bull; Sem {ROMAN_SEMESTERS[s.semester] || s.semester}
+                  </option>
+                ))}
+              </select>
+              {selectedStudent && (
+                <div
+                  style={{
+                    fontSize: '0.78rem',
+                    color: 'var(--color-text-muted)',
+                    marginTop: '0.35rem',
+                    background: '#f8fafc',
+                    padding: '0.4rem 0.65rem',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid #e2e8f0',
+                  }}
+                >
+                  Candidate: <strong>{selectedStudent.studentName}</strong> &bull; Roll: <strong>{selectedStudent.rollNumber}</strong> &bull; Dept: <strong>{selectedStudent.department}</strong> &bull; Section: <strong>{selectedStudent.section || 'A'}</strong>
+                </div>
+              )}
+            </div>
+
+            {/* 3 & 4. Branch / Department & Current Semester */}
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label" htmlFor="result-branch-select">
-                  1. Branch *
+                <label
+                  className="form-label"
+                  htmlFor="result-branch-select"
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                >
+                  <span>3. Branch / Department *</span>
+                  {selectedStudent && (
+                    <span style={{ fontSize: '0.74rem', color: '#16a34a', fontWeight: 700 }}>
+                      Autofilled
+                    </span>
+                  )}
                 </label>
                 <select
                   id="result-branch-select"
                   className="form-select"
                   value={resultFormData.branch}
                   onChange={(e) => handleBranchChange(e.target.value)}
+                  style={{
+                    backgroundColor: selectedStudent ? '#f0fdf4' : undefined,
+                  }}
                 >
                   {BRANCHES.map((b) => (
                     <option key={b.code} value={b.code}>
@@ -1036,11 +1285,11 @@ const ManageResults = () => {
                   htmlFor="result-semester-select"
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                 >
-                  <span>2. Semester *</span>
+                  <span>4. Current Semester *</span>
                   {selectedStudent && (
                     <span
                       style={{
-                        fontSize: '0.78rem',
+                        fontSize: '0.74rem',
                         color: 'var(--color-primary)',
                         fontWeight: 700,
                       }}
@@ -1054,6 +1303,9 @@ const ManageResults = () => {
                   className="form-select"
                   value={resultFormData.semester}
                   onChange={(e) => handleSemesterChange(e.target.value)}
+                  style={{
+                    backgroundColor: selectedStudent ? '#eff6ff' : undefined,
+                  }}
                 >
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
                     <option key={s} value={s}>
@@ -1064,50 +1316,6 @@ const ManageResults = () => {
                   ))}
                 </select>
               </div>
-            </div>
-
-            {/* Candidate / Student Selection */}
-            <div className="form-group">
-              <label className="form-label" htmlFor="result-student-select">
-                Candidate / Student * ({resultFormData.branch})
-              </label>
-              <select
-                id="result-student-select"
-                className="form-select"
-                required
-                value={resultFormData.studentId}
-                onChange={(e) => handleStudentSelect(e.target.value)}
-              >
-                <option value="">-- Select Candidate in {resultFormData.branch} --</option>
-                {/* Candidates in the selected branch */}
-                {students
-                  .filter((s) => getBranchFromDepartment(s.department) === resultFormData.branch)
-                  .map((s) => (
-                    <option key={s.studentId} value={s.studentId}>
-                      {s.studentName} ({s.rollNumber}) &bull; Enrolled: Sem {ROMAN_SEMESTERS[s.semester] || s.semester} &bull; Sec {s.section}
-                    </option>
-                  ))}
-                {/* Other branches grouped */}
-                {students.filter((s) => getBranchFromDepartment(s.department) !== resultFormData.branch).length > 0 && (
-                  <optgroup label="Candidates from Other Branches">
-                    {students
-                      .filter((s) => getBranchFromDepartment(s.department) !== resultFormData.branch)
-                      .map((s) => {
-                        const bCode = getBranchFromDepartment(s.department);
-                        return (
-                          <option key={s.studentId} value={s.studentId}>
-                            {s.studentName} ({s.rollNumber}) &bull; [{bCode}] &bull; Sem {ROMAN_SEMESTERS[s.semester] || s.semester}
-                          </option>
-                        );
-                      })}
-                  </optgroup>
-                )}
-              </select>
-              {selectedStudent && (
-                <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '0.35rem' }}>
-                  Candidate Roll: <strong>{selectedStudent.rollNumber}</strong> &bull; Dept: <strong>{selectedStudent.department}</strong> &bull; Current Semester: <strong>Sem {ROMAN_SEMESTERS[selectedStudent.semester] || selectedStudent.semester}</strong>
-                </div>
-              )}
             </div>
 
             {/* Special Rule: Semester VII (Section 3) */}
@@ -1138,14 +1346,14 @@ const ManageResults = () => {
                   }}
                 >
                   <span style={{ fontSize: '0.9rem', color: '#166534', fontWeight: 600 }}>
-                    Official Subject Name:
+                    5 &amp; 6. Official Subject:
                   </span>
                   <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#14532d' }}>
-                    Project
+                    Project (PROJECT)
                   </span>
                 </div>
                 <p style={{ fontSize: '0.8rem', color: '#15803d', marginTop: '0.5rem', marginBottom: 0 }}>
-                  Course Code and Course Name dropdowns are hidden for Semester VII. Marks are evaluated directly out of 100 for Project.
+                  Course Code and Subject Name dropdowns are automatically assigned for Semester VII. Marks are evaluated directly out of 100 for Project.
                 </p>
               </div>
             )}
@@ -1178,19 +1386,19 @@ const ManageResults = () => {
                   }}
                 >
                   <span style={{ fontSize: '0.9rem', color: '#1e40af', fontWeight: 600 }}>
-                    Official Subject Name:
+                    5 &amp; 6. Official Subject:
                   </span>
                   <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1e3a8a' }}>
-                    Internship
+                    Internship (INTERNSHIP)
                   </span>
                 </div>
                 <p style={{ fontSize: '0.8rem', color: '#1d4ed8', marginTop: '0.5rem', marginBottom: 0 }}>
-                  Course Code and Course Name dropdowns are hidden for Semester VIII. Marks are evaluated directly out of 100 for Internship.
+                  Course Code and Subject Name dropdowns are automatically assigned for Semester VIII. Marks are evaluated directly out of 100 for Internship.
                 </p>
               </div>
             )}
 
-            {/* Semesters I to VI: Two-Way Linked Course Code and Course Name (Section 2, 6, 7, 8) */}
+            {/* Semesters I to VI: Two-Way Linked 5. Subject & 6. Subject Code */}
             {!isSpecialSem7 && !isSpecialSem8 && (
               <>
                 {availableCourses.length === 0 ? (
@@ -1215,34 +1423,10 @@ const ManageResults = () => {
                 ) : (
                   <>
                     <div className="form-row">
-                      {/* Course Code Dropdown */}
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="result-course-code">
-                          3. Course Code *
-                        </label>
-                        <select
-                          id="result-course-code"
-                          className="form-select"
-                          required
-                          value={resultFormData.selectedSubjectId}
-                          onChange={(e) => handleSubjectSelect(e.target.value)}
-                        >
-                          <option value="">-- Select Course Code --</option>
-                          {availableCourses.map((c) => (
-                            <option key={c.internalId} value={c.internalId}>
-                              {c.code ? c.code : `${c.name} (No official code)`}
-                            </option>
-                          ))}
-                        </select>
-                        <span style={{ fontSize: '0.76rem', color: 'var(--color-text-muted)' }}>
-                          Selecting code auto-updates Course Name
-                        </span>
-                      </div>
-
-                      {/* Course Name Dropdown */}
+                      {/* 5. Subject / Course Name */}
                       <div className="form-group">
                         <label className="form-label" htmlFor="result-course-name">
-                          4. Course Name *
+                          5. Subject *
                         </label>
                         <select
                           id="result-course-name"
@@ -1251,7 +1435,7 @@ const ManageResults = () => {
                           value={resultFormData.selectedSubjectId}
                           onChange={(e) => handleSubjectSelect(e.target.value)}
                         >
-                          <option value="">-- Select Course Name --</option>
+                          <option value="">-- Select Subject ({resultFormData.branch} Sem {ROMAN_SEMESTERS[resultFormData.semester] || resultFormData.semester}) --</option>
                           {availableCourses.map((c) => (
                             <option key={c.internalId} value={c.internalId}>
                               {c.name} {c.code ? `(${c.code})` : ''}
@@ -1259,18 +1443,43 @@ const ManageResults = () => {
                           ))}
                         </select>
                         <span style={{ fontSize: '0.76rem', color: 'var(--color-text-muted)' }}>
-                          Selecting title auto-updates Course Code
+                          Selecting subject auto-fills Subject Code
+                        </span>
+                      </div>
+
+                      {/* 6. Subject Code */}
+                      <div className="form-group">
+                        <label className="form-label" htmlFor="result-course-code">
+                          6. Subject Code *
+                        </label>
+                        <select
+                          id="result-course-code"
+                          className="form-select"
+                          required
+                          value={resultFormData.selectedSubjectId}
+                          onChange={(e) => handleSubjectSelect(e.target.value)}
+                        >
+                          <option value="">-- Select Subject Code --</option>
+                          {availableCourses.map((c) => (
+                            <option key={c.internalId} value={c.internalId}>
+                              {c.code ? c.code : `${c.name} (No official code)`}
+                            </option>
+                          ))}
+                        </select>
+                        <span style={{ fontSize: '0.76rem', color: 'var(--color-text-muted)' }}>
+                          Selecting code auto-fills Subject
                         </span>
                       </div>
                     </div>
 
+                    {/* 7. Examination Details (if applicable) */}
                     {resultFormData.selectedSubjectId && (
                       <div
                         style={{
                           background: '#f8fafc',
                           border: '1px solid #e2e8f0',
                           borderRadius: 'var(--radius-sm)',
-                          padding: '0.6rem 0.85rem',
+                          padding: '0.65rem 0.9rem',
                           marginBottom: '1rem',
                           fontSize: '0.84rem',
                           display: 'flex',
@@ -1279,9 +1488,10 @@ const ManageResults = () => {
                           color: '#334155',
                         }}
                       >
-                        <span style={{ color: '#16a34a', fontWeight: 700 }}>✓ Linked Subject:</span>
+                        <span style={{ color: '#16a34a', fontWeight: 700 }}>✓ 7. Examination Details:</span>
                         <span>
                           <strong>{resultFormData.subjectCode}</strong> &bull; {resultFormData.subjectName}
+                          {selectedStudent ? ` for ${selectedStudent.studentName} (${selectedStudent.rollNumber})` : ''}
                         </span>
                       </div>
                     )}
@@ -1290,10 +1500,10 @@ const ManageResults = () => {
               </>
             )}
 
-            {/* Marks Entry (Section 5) */}
+            {/* 8. Marks Entry & Live Calculated Grade */}
             <div className="form-row" style={{ alignItems: 'flex-end', marginTop: '0.5rem' }}>
               <div className="form-group">
-                <label className="form-label">Marks (0 - 100) *</label>
+                <label className="form-label">8. Marks (0 - 100) *</label>
                 <input
                   type="number"
                   min="0"
@@ -1318,6 +1528,7 @@ const ManageResults = () => {
               </div>
             </div>
 
+            {/* 9. Other existing result fields / Footer */}
             <div className="modal-footer" style={{ padding: '1rem 0 0', marginTop: '1.5rem' }}>
               <button
                 type="button"

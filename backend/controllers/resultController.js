@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Result = require('../models/Result');
 const Student = require('../models/Student');
 const { calculateGrade, calculateSGPA } = require('../utils/grading');
@@ -171,12 +172,13 @@ const createResult = async (req, res, next) => {
       });
     }
 
-    const { studentId, subjectCode, subjectName, marks, semester } = req.body;
+    const { studentId, rollNumber, subjectCode, subjectName, marks, semester } = req.body;
+    const candidateIdentifier = (studentId || rollNumber || '').toString().trim();
 
-    if (!studentId || !subjectCode || !subjectName || marks === undefined || !semester) {
+    if (!candidateIdentifier || !subjectCode || !subjectName || marks === undefined || !semester) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide studentId, subjectCode, subjectName, marks, and semester',
+        message: 'Please provide studentId or rollNumber, subjectCode, subjectName, marks, and semester',
       });
     }
 
@@ -189,15 +191,22 @@ const createResult = async (req, res, next) => {
       });
     }
 
-    // Verify student exists
-    const student = await Student.findOne({
-      $or: [{ studentId }, { rollNumber: studentId.toUpperCase() }],
+    // Verify student exists by studentId or normalized rollNumber or ObjectId
+    let student = await Student.findOne({
+      $or: [
+        { studentId: candidateIdentifier },
+        { rollNumber: candidateIdentifier.toUpperCase() },
+      ],
     });
+
+    if (!student && mongoose.Types.ObjectId.isValid(candidateIdentifier)) {
+      student = await Student.findById(candidateIdentifier);
+    }
 
     if (!student) {
       return res.status(404).json({
         success: false,
-        message: `Student not found with ID or Roll Number: ${studentId}`,
+        message: `Student not found with ID or Roll Number: ${candidateIdentifier}`,
       });
     }
 

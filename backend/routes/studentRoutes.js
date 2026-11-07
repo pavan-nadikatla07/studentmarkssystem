@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   getStudents,
   getStudentById,
+  getStudentByRoll,
   createStudent,
   updateStudent,
   deleteStudent,
@@ -15,6 +16,9 @@ const { protect, adminOnly } = require('../middleware/authMiddleware');
 router.route('/')
   .get(protect, adminOnly, getStudents)
   .post(protect, adminOnly, createStudent);
+
+// GET /students/roll/:rollNumber - Admin Only (Autofill student details by Roll Number)
+router.get('/roll/:rollNumber', protect, adminOnly, getStudentByRoll);
 
 // GET /students/:id - Authenticated (Admins can view any student; Students can ONLY view their own profile)
 // PUT /students/:id - Admin Only (Students must NOT modify student records)

@@ -49,6 +49,52 @@ const getStudents = async (req, res, next) => {
 };
 
 /**
+ * @route   GET /students/roll/:rollNumber
+ * @desc    Get single student by Roll Number (Admin result autofill)
+ * @access  Private (Admin Only)
+ */
+const getStudentByRoll = async (req, res, next) => {
+  try {
+    const rawRoll = req.params.rollNumber;
+    if (!rawRoll || !rawRoll.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid Roll Number',
+      });
+    }
+
+    const normalizedRoll = rawRoll.trim().toUpperCase();
+
+    const student = await Student.findOne({ rollNumber: normalizedRoll });
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'No student found with this Roll Number.',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        _id: student._id,
+        studentId: student.studentId,
+        rollNumber: student.rollNumber,
+        studentName: student.studentName,
+        department: student.department,
+        semester: student.semester,
+        section: student.section,
+        userId: student.userId,
+        createdAt: student.createdAt,
+        updatedAt: student.updatedAt,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * @route   GET /students/:id
  * @desc    Get single student by studentId, rollNumber, or _id
  * @access  Private (Admin can view any student; Student can ONLY view their own profile)
@@ -261,6 +307,7 @@ const deleteStudent = async (req, res, next) => {
 module.exports = {
   getStudents,
   getStudentById,
+  getStudentByRoll,
   createStudent,
   updateStudent,
   deleteStudent,
